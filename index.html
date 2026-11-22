@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Data center in Italia</title>
+<!--
+  Anteprima interattiva per i pitch (2026-11-22). Mappa dei data center per fase, cerchi grandi quanto la potenza dichiarata,
+  anello verde sui 10 costruiti su suolo agricolo o incolto (dati/siti_nuovo_suolo_landsat.csv + risultati/verifica_candidati.csv).
+  Dati in dati_calore.js (copia di viz/dati_calore.js, da R/12_calore_italia.R).
+  Indirizzi utili: #milano apre ingrandita sul sud di Milano; #statico nasconde i comandi (per lo screenshot).
+-->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script src="dati_calore.js"></script>
+<style>
+  :root {
+    --fondo: #ffffff; --testo: #111111; --testo-2: #5f5f5a; --linea: #deded8; --terra: #f1f1ed;
+    --acceso: #111111; --cantiere: #8f8e88; --progetto: #f08a24; --suolo: #1f7a3a;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fondo); color: var(--testo); }
+  body { font: 16px/1.5 "Inter", system-ui, sans-serif; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+  .pagina { max-width: 860px; margin: 0 auto; padding: 28px 16px 32px; }
+  h1 { font-size: clamp(1.6rem, 4.5vw, 2.3rem); line-height: 1.1; letter-spacing: -.03em; margin: 0 0 10px; font-weight: 700; }
+  .sommario { color: var(--testo-2); margin: 0 0 18px; max-width: 62ch; }
+  .sommario b { color: var(--testo); }
+  .tasti { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  .tasti button { font: 500 .88rem "Inter", sans-serif; background: #fff; color: var(--testo); border: 1px solid var(--testo); border-radius: 0;
+    padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+  .tasti button i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .tasti button[aria-pressed="false"] { opacity: .45; }
+  .mappa-box { position: relative; border: 1px solid var(--linea); }
+  #mappa { display: block; width: 100%; height: auto; touch-action: pan-y; cursor: grab; }
+  #mappa:active { cursor: grabbing; }
+  .zoom-tasti { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .zoom-tasti button { font: 500 .82rem "Inter", sans-serif; min-width: 34px; height: 34px; background: #fff; color: var(--testo);
+    border: 1px solid var(--testo); border-radius: 0; cursor: pointer; padding: 0 9px; }
+  .zoom-tasti button:disabled { opacity: .35; cursor: default; }
+  #mappa .terra { fill: var(--terra); stroke: #cbcac4; stroke-width: .6; }
+  #mappa circle { cursor: pointer; }
+  #mappa circle.acceso { fill: var(--acceso); fill-opacity: .82; stroke: #fff; }
+  #mappa circle.cantiere { fill: var(--cantiere); fill-opacity: .85; stroke: #fff; }
+  #mappa circle.progetto { fill: var(--progetto); fill-opacity: .5; stroke: #8a4300; }
+  #mappa circle.ignota { fill: #fff; stroke: var(--testo-2); }
+  #mappa circle.anello { fill: none; stroke: var(--suolo); pointer-events: none; }
+  #mappa circle.spento { opacity: 0; pointer-events: none; }
+  #mappa .citta text { font-family: "Inter", sans-serif; font-weight: 500; fill: var(--testo-2); text-anchor: middle; pointer-events: none;
+    stroke: #fff; stroke-linejoin: round; paint-order: stroke; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .78rem; color: var(--testo-2); margin: 10px 0 0; }
+  .legenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .legenda i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .conta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0 0; }
+  .conta div { border-top: 3px solid var(--testo); padding-top: 6px; font-size: .8rem; color: var(--testo-2); line-height: 1.35; }
+  .conta b { display: block; font-size: 1.5rem; line-height: 1.1; font-weight: 700; letter-spacing: -.02em; color: var(--testo); }
+  .aiuto, .fonti { font-size: .78rem; color: var(--testo-2); margin: 8px 0 0; }
+  .fonti { margin-top: 18px; border-top: 1px solid var(--linea); padding-top: 10px; }
+  .fonti a { color: inherit; }
+  .tip { position: fixed; z-index: 50; pointer-events: none; background: #fff; border: 1px solid #000; padding: 8px 10px; font: .8rem/1.45 "Inter", sans-serif;
+    max-width: 280px; opacity: 0; transition: opacity .12s; }
+  .tip b { font-size: .92rem; }
+  .tip .grigio { color: var(--testo-2); }
+  .tip .verde { color: var(--suolo); font-weight: 600; }
+  body.statico .tasti, body.statico .zoom-tasti, body.statico .aiuto { display: none; }
+  @media (max-width: 520px) { .conta b { font-size: 1.2rem; } }
+</style>
+</head>
+<body>
+<main class="pagina">
+  <h1>I data center in Italia, accesi e in arrivo</h1>
+  <p class="sommario">Ogni cerchio è un data center (o un campus), grande quanto la potenza dichiarata. I progetti annunciati valgono <b id="t-volte-mw"></b> volte la potenza accesa oggi, e la crescita si concentra tra il sud di Milano e il Pavese. <b style="color:var(--suolo)">Con l'anello verde</b> i 10 impianti costruiti su campi o terreni incolti.</p>
+
+  <div class="tasti" role="group" aria-label="Cosa mostrare">
+    <button data-fase="acceso" aria-pressed="true"><i style="background:var(--acceso)"></i>Accesi</button>
+    <button data-fase="cantiere" aria-pressed="true"><i style="background:var(--cantiere)"></i>In costruzione</button>
+    <button data-fase="progetto" aria-pressed="true"><i style="background:var(--progetto);opacity:.7"></i>In progetto</button>
+    <button id="t-suolo" aria-pressed="true"><i style="border:2px solid var(--suolo)"></i>Su suolo agricolo</button>
+  </div>
+
+  <div class="mappa-box">
+    <svg id="mappa" viewBox="0 0 800 820" role="img" aria-label="Mappa dei data center italiani, cerchi grandi quanto la potenza dichiarata"></svg>
+    <div class="zoom-tasti" role="group" aria-label="Ingrandimento">
+      <button id="zoom-piu" aria-label="Ingrandisci">+</button>
+      <button id="zoom-meno" aria-label="Rimpicciolisci">−</button>
+      <button id="zoom-milano">Milano</button>
+      <button id="zoom-tutto" disabled>Italia</button>
+    </div>
+  </div>
+  <p class="aiuto">Passa sopra un cerchio (o toccalo) per i dettagli. Per ingrandire: + e −, due dita sul telefono o Ctrl e rotellina, poi trascina.</p>
+  <div class="legenda">
+    <span><i style="background:var(--acceso)"></i>acceso</span>
+    <span><i style="background:var(--cantiere)"></i>in costruzione</span>
+    <span><i style="background:var(--progetto);opacity:.7;border:1px solid #8a4300"></i>in progetto</span>
+    <span><i style="border:1px solid var(--testo-2)"></i>potenza non dichiarata</span>
+    <span><i style="border:2px solid var(--suolo)"></i>costruito su suolo agricolo o incolto</span>
+  </div>
+  <div class="conta" aria-live="polite">
+    <div><b id="c-edifici"></b>edifici sulla mappa</div>
+    <div><b id="c-mw"></b>MW dichiarati</div>
+    <div><b id="c-twh"></b>TWh l'anno stimati oggi e con cantieri e parte dei progetti</div>
+  </div>
+  <p class="fonti">Dati: <a href="https://www.datacentermap.com/italy/">Datacentermap</a> (uso autorizzato) per posizione, fase e potenza; ISPRA, Carta nazionale del consumo di suolo 2006-2024 (CC BY 4.0), e ortofoto storiche per il suolo. Consumi: stima dalla potenza dichiarata con carico tra 40 e 80%, impianti tra +20 e +50%, cantieri realizzati all'80-100%, progetti al 20-60% (mediana di simulazioni). Elaborazione di David Ruffini, <a href="https://www.davidruffini.com">davidruffini.com</a>. Anteprima non pubblicata.</p>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+const fmt = (x, d = 1) => x.toLocaleString("it-IT", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmt0 = (x) => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+const SITI = DATI.siti.map((s, i) => ({ ...s, i }));
+const somma = (f) => d3.sum(SITI.filter((s) => s.f === f), (s) => s.mw || 0);
+const R = Object.fromEntries(DATI.riassunto.map((r) => [r.scenario, r]));
+document.getElementById("t-volte-mw").textContent = fmt0(somma("progetto") / somma("acceso"));
+document.getElementById("c-twh").textContent = fmt0(R.oggi.mediana) + " → " + fmt0(R.domani.mediana);
+
+// i 10 data center costruiti su suolo nuovo (verifica a occhio delle ortofoto, risultati/verifica_candidati.csv)
+const SUOLO = [
+  ["Eni Green Data Center", "Ferrera Erbognone (PV)", 45.09925, 8.86088, "campi fino al 2006, cantiere 2011-2012"],
+  ["STACK MIL1A", "Siziano (PV)", 45.33121, 9.20606, "campo fino al 2014, cantiere 2016"],
+  ["STACK MIL2", "Siziano (PV)", 45.32863, 9.20293, "campo, cantiere 2021"],
+  ["Microsoft", "Settala (MI)", 45.42909, 9.38617, "campo fino al 2020, cantiere 2022"],
+  ["Noovle Cebrosa", "Settimo Torinese (TO)", 45.14632, 7.74232, "campo fino al 2020, cantiere 2022"],
+  ["Aruba IT4", "Roma", 41.93068, 12.63121, "incolto fino al 2021, cantiere 2022"],
+  ["Insiel", "Palmanova (UD)", 45.911305, 13.335943, "incolto fino al 2012, cantiere 2012-2016"],
+  ["STACK MIL04", "Vellezzo Bellini (PV)", 45.275665, 9.125282, "pioppeto e campo fino al 2022, cantiere 2023"],
+  ["Compass MXP-I", "Noviglio (MI)", 45.337359, 9.089661, "campo fino al 2022, cantiere 2024"],
+  ["Vantage MXP1", "Melegnano (MI)", 45.35366, 9.30992, "incolto fino al 2022, cantiere 2024"],
+  ["AWS", "Zibido San Giacomo (MI)", 45.364251, 9.12649, "incolto fino al 2017, cantiere 2024-2025"],
+];
+
+const tip = document.getElementById("tip");
+const FASI = { acceso: "acceso", cantiere: "in costruzione", progetto: "in progetto" };
+function mostra(ev, s) {
+  const gwh = s.mw != null ? s.mw * 0.6 * 1.35 * 8760 / 1000 : null;
+  const edifici = s.edifici > 1 ? ` · ${s.edifici} edifici` : "";
+  const suolo = s.suolo ? `<br><span class="verde">Su suolo agricolo o incolto</span><br><span class="grigio">${s.suolo[1]}: ${s.suolo[4]}</span>` : "";
+  tip.innerHTML = `<b>${s.n}</b><br><span class="grigio">${s.a} · ${FASI[s.f]}${edifici}</span><br>` +
+    (s.mw != null ? `${fmt(s.mw, s.mw < 10 ? 1 : 0)} MW · circa ${fmt0(gwh)} GWh l'anno` : "potenza non dichiarata") + suolo;
+  tip.style.left = Math.min(ev.clientX + 14, innerWidth - 290) + "px"; tip.style.top = (ev.clientY + 14) + "px"; tip.style.opacity = 1;
+}
+const nascondi = () => (tip.style.opacity = 0);
+
+(async function () {
+  const W = 800, H = 820;
+  const svg = d3.select("#mappa"), g = svg.append("g");
+  const mondo = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json");
+  const italia = topojson.feature(mondo, mondo.objects.countries).features.find((f) => f.id === "380");
+  const proj = d3.geoMercator().fitExtent([[20, 20], [W - 20, H - 20]], italia);
+  g.append("path").attr("class", "terra").attr("d", d3.geoPath(proj)(italia));
+
+  const CITTA = [
+    ["Milano", 45.464, 9.19, 1], ["Torino", 45.07, 7.686, 1], ["Roma", 41.9, 12.496, 1], ["Bologna", 44.494, 11.343, 1],
+    ["Napoli", 40.852, 14.268, 1], ["Bari", 41.117, 16.872, 1], ["Genova", 44.407, 8.934, 1], ["Venezia", 45.44, 12.316, 1],
+    ["Firenze", 43.77, 11.255, 1], ["Palermo", 38.116, 13.361, 1], ["Cagliari", 39.223, 9.122, 1],
+    ["Pavia", 45.185, 9.159, 3], ["Lodi", 45.314, 9.503, 3], ["Monza", 45.584, 9.274, 3], ["Bergamo", 45.698, 9.677, 3],
+    ["Novara", 45.446, 8.622, 3], ["Varese", 45.82, 8.825, 3], ["Como", 45.808, 9.085, 3], ["Piacenza", 45.052, 9.693, 3],
+    ["Rho", 45.53, 9.04, 7], ["Abbiategrasso", 45.398, 8.918, 7], ["Melegnano", 45.358, 9.324, 7], ["Vimercate", 45.612, 9.37, 7],
+    ["Segrate", 45.49, 9.295, 7], ["Binasco", 45.33, 9.1, 7], ["Siziano", 45.316, 9.2, 7], ["Settala", 45.455, 9.39, 7],
+    ["Moncalieri", 44.999, 7.682, 7], ["Fiumicino", 41.771, 12.237, 7]];
+  const citta = g.append("g").attr("class", "citta").selectAll("text").data(CITTA).join("text")
+    .attr("x", (c) => proj([c[2], c[1]])[0]).attr("y", (c) => proj([c[2], c[1]])[1]).text((c) => c[0]);
+
+  const gruppi = d3.groups(SITI.filter((s) => s.lat != null), (s) => s.c === "0" ? "s" + s.i : s.c + "|" + s.f);
+  const punti = gruppi.map(([chiave, ss]) => {
+    const noti = ss.filter((s) => s.mw != null);
+    const lon = d3.mean(ss, (s) => s.lon), lat = d3.mean(ss, (s) => s.lat), [x, y] = proj([lon, lat]);
+    return { chiave, n: ss[0].c === "0" ? ss[0].n : ss[0].cn, a: ss[0].a, f: ss[0].f, edifici: ss.length,
+      mw: noti.length ? d3.sum(noti, (s) => s.mw) : null, lat, lon, x, y };
+  });
+  // ogni sito su suolo agricolo va al cerchio più vicino (entro 1,5 km): l'anello si disegna attorno a quello
+  const km = (a, b, c, d) => Math.hypot((a - c) * 111, (b - d) * 111 * Math.cos(a * Math.PI / 180));
+  for (const s of SUOLO) {
+    const vicino = d3.least(punti, (p) => km(p.lat, p.lon, s[2], s[3]));
+    if (vicino && km(vicino.lat, vicino.lon, s[2], s[3]) < 1.5 && !vicino.suolo) vicino.suolo = s;
+    else punti.push({ chiave: "suolo" + s[0], n: s[0], a: s[1], f: "cantiere", edifici: 1, mw: null, lat: s[2], lon: s[3],
+      x: proj([s[3], s[2]])[0], y: proj([s[3], s[2]])[1], suolo: s });
+  }
+  const ordine = { progetto: 0, cantiere: 1, acceso: 2 };
+  punti.sort((a, b) => ordine[a.f] - ordine[b.f] || (b.mw || 0) - (a.mw || 0));
+
+  const raggio = d3.scaleSqrt().domain([0, 300]).range([0, 26]);
+  let fasi = new Set(["acceso", "cantiere", "progetto"]), suoloOn = true, k = 1;
+  const rSchermo = (s) => (s.mw == null ? 2.4 : Math.max(raggio(s.mw), 2.4));
+  const r = (s) => rSchermo(s) / k;
+
+  const cerchi = g.append("g").selectAll("circle").data(punti, (s) => s.chiave).join("circle")
+    .attr("cx", (s) => s.x).attr("cy", (s) => s.y)
+    .attr("class", (s) => s.mw == null ? "ignota" : s.f)
+    .on("mousemove", mostra).on("mouseleave", nascondi)
+    .on("click", (ev, s) => { mostra(ev, s); clearTimeout(cerchi._t); cerchi._t = setTimeout(nascondi, 2500); });
+  const anelli = g.append("g").selectAll("circle").data(punti.filter((p) => p.suolo)).join("circle")
+    .attr("class", "anello").attr("cx", (s) => s.x).attr("cy", (s) => s.y);
+
+  const rAnello = (s) => (rSchermo(s) + 3.5) / k;
+  function disegna(durata = 400) {
+    cerchi.classed("spento", (s) => !fasi.has(s.f)).style("stroke-width", 1 / k).transition().duration(durata).attr("r", r);
+    anelli.classed("spento", (s) => !suoloOn || !fasi.has(s.f)).style("stroke-width", 2.2 / k).transition().duration(durata).attr("r", rAnello);
+  }
+  function scrivi() {
+    citta.attr("font-size", 12 / k).attr("stroke-width", 3 / k).attr("dy", -6 / k).style("display", (c) => k >= c[3] ? null : "none");
+  }
+  function conta() {
+    const vis = SITI.filter((s) => fasi.has(s.f));
+    document.getElementById("c-edifici").textContent = fmt0(vis.length);
+    document.getElementById("c-mw").textContent = fmt0(d3.sum(vis, (s) => s.mw || 0));
+  }
+  document.querySelectorAll("[data-fase]").forEach((b) => b.addEventListener("click", () => {
+    const f = b.dataset.fase;
+    fasi.has(f) ? fasi.delete(f) : fasi.add(f);
+    b.setAttribute("aria-pressed", fasi.has(f));
+    disegna(); conta();
+  }));
+  document.getElementById("t-suolo").addEventListener("click", (e) => {
+    suoloOn = !suoloOn; e.currentTarget.setAttribute("aria-pressed", suoloOn); disegna();
+  });
+
+  const zoom = d3.zoom().scaleExtent([1, 24]).translateExtent([[0, 0], [W, H]])
+    .filter((ev) => ev.type === "wheel" ? ev.ctrlKey || ev.metaKey
+      : ev.type.startsWith("touch") ? ev.touches.length > 1 || k > 1 : !ev.button)
+    .on("zoom", (ev) => {
+      k = ev.transform.k;
+      g.attr("transform", ev.transform);
+      g.select(".terra").style("stroke-width", .6 / k);
+      cerchi.interrupt().style("stroke-width", 1 / k).attr("r", r);
+      anelli.interrupt().style("stroke-width", 2.2 / k).attr("r", rAnello);
+      scrivi();
+      svg.style("touch-action", k > 1 ? "none" : "pan-y");
+      document.getElementById("zoom-tutto").disabled = k === 1;
+    });
+  svg.call(zoom).on("dblclick.zoom", null).style("touch-action", "pan-y");
+  // vista sul sud di Milano e il Pavese
+  const [mx, my] = proj([9.17, 45.37]), KM = 9;
+  const vistaMilano = d3.zoomIdentity.translate(W / 2 - KM * mx, H / 2 - KM * my).scale(KM);
+  document.getElementById("zoom-piu").onclick = () => svg.transition().duration(400).call(zoom.scaleBy, 2);
+  document.getElementById("zoom-meno").onclick = () => svg.transition().duration(400).call(zoom.scaleBy, .5);
+  document.getElementById("zoom-milano").onclick = () => svg.transition().duration(700).call(zoom.transform, vistaMilano);
+  document.getElementById("zoom-tutto").onclick = () => svg.transition().duration(600).call(zoom.transform, d3.zoomIdentity);
+
+  const h = location.hash;
+  if (h.includes("statico")) document.body.classList.add("statico");
+  g.select(".citta").raise(); scrivi(); disegna(0); conta();
+  if (h.includes("milano")) svg.call(zoom.transform, vistaMilano);
+  document.body.dataset.pronta = "1";
+})();
+</script>
+</body>
+</html>
