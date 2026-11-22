@@ -64,7 +64,21 @@
   .tip b { font-size: .92rem; }
   .tip .grigio { color: var(--testo-2); }
   .tip .verde { color: var(--suolo); font-weight: 600; }
+  h2 { font-size: clamp(1.3rem, 3.5vw, 1.7rem); line-height: 1.15; letter-spacing: -.02em; margin: 48px 0 8px; font-weight: 700; }
+  .cursore { margin: 8px 0 4px; max-width: 520px; }
+  .cursore label { display: flex; justify-content: space-between; gap: 12px; font-size: .9rem; font-weight: 500; }
+  .cursore output { font-weight: 700; font-size: 1.05rem; }
+  .cursore input { width: 100%; accent-color: var(--progetto); margin: 10px 0 2px; }
+  .cursore .estremi { display: flex; justify-content: space-between; font-size: .75rem; color: var(--testo-2); }
+  #curva { display: block; width: 100%; height: auto; margin-top: 18px; }
+  #curva text { font-family: "Inter", sans-serif; font-size: 12px; fill: var(--testo-2); }
+  #curva .asse line, #curva .asse path { stroke: var(--linea); }
+  .nota { font-size: .78rem; color: var(--testo-2); margin: 6px 0 0; }
   body.statico .tasti, body.statico .zoom-tasti, body.statico .aiuto { display: none; }
+  body.solo-scenari main > h1, body.solo-scenari main > .sommario, body.solo-scenari main > .tasti, body.solo-scenari .mappa-box,
+  body.solo-scenari .aiuto, body.solo-scenari .legenda, body.solo-scenari main > .conta { display: none; }
+  body.solo-scenari h2 { margin-top: 0; }
+  body.statico:not(.solo-scenari) #scenari { display: none; }
   @media (max-width: 520px) { .conta b { font-size: 1.2rem; } }
 </style>
 </head>
@@ -102,6 +116,23 @@
     <div><b id="c-mw"></b>MW dichiarati</div>
     <div><b id="c-twh"></b>TWh l'anno stimati oggi e con cantieri e parte dei progetti</div>
   </div>
+  <section id="scenari">
+    <h2>Quanto consumeranno, a seconda di quanti progetti si fanno</h2>
+    <p class="sommario">Nessuno sa quanti dei progetti annunciati diventeranno data center veri. Scegli una quota con il cursore: il grafico mostra il consumo di elettricità stimato di tutti i data center italiani, con la forchetta di incertezza.</p>
+    <div class="cursore">
+      <label for="p">Progetti annunciati che si fanno davvero <output id="p-val">40%</output></label>
+      <input id="p" type="range" min="0" max="100" step="5" value="40">
+      <div class="estremi"><span>nessuno</span><span>tutti</span></div>
+    </div>
+    <div class="conta" aria-live="polite">
+      <div><b id="s-twh"></b>TWh l'anno, stima centrale</div>
+      <div><b id="s-forchetta"></b>TWh, in 9 casi su 10</div>
+      <div><b id="s-famiglie"></b>milioni di famiglie con lo stesso consumo</div>
+    </div>
+    <svg id="curva" viewBox="0 0 860 380" role="img" aria-label="Consumo stimato dei data center in funzione della quota di progetti realizzati"></svg>
+    <p class="nota">La linea è la stima centrale, la fascia contiene 9 simulazioni su 10. La linea tratteggiata è il consumo di oggi. I cantieri già aperti si contano sempre (realizzati all'80-100%).</p>
+  </section>
+
   <p class="fonti">Dati: <a href="https://www.datacentermap.com/italy/">Datacentermap</a> (uso autorizzato) per posizione, fase e potenza; ISPRA, Carta nazionale del consumo di suolo 2006-2024 (CC BY 4.0), e ortofoto storiche per il suolo. Consumi: stima dalla potenza dichiarata con carico tra 40 e 80%, impianti tra +20 e +50%, cantieri realizzati all'80-100%, progetti al 20-60% (mediana di simulazioni). Elaborazione di David Ruffini, <a href="https://www.davidruffini.com">davidruffini.com</a>. Anteprima non pubblicata.</p>
 </main>
 <div class="tip" id="tip"></div>
@@ -243,6 +274,76 @@ const nascondi = () => (tip.style.opacity = 0);
   g.select(".citta").raise(); scrivi(); disegna(0); conta();
   if (h.includes("milano")) svg.call(zoom.transform, vistaMilano);
   document.body.dataset.pronta = "1";
+})();
+
+// ---------- scenari: le stesse regole di R/12_calore_italia.R e viz/calore.html ----------
+// Per ogni quota di progetti (0-100%) si simulano 600 futuri: carico dei server, consumo degli impianti, potenza dei siti che non la
+// dichiarano (pescata fra i siti della stessa fase), cantieri realizzati all'80-100%, ogni progetto con la probabilità scelta.
+// Gli edifici di uno stesso campus si fanno o non si fanno insieme. Seme fisso, così i numeri non cambiano a ogni caricamento.
+if (location.hash.includes("solo-scenari")) document.body.classList.add("solo-scenari", "statico");
+(function () {
+  const IP = DATI.ipotesi, ORE = 8760, N = 1000;
+  let caso = d3.randomLcg(42);   // si riparte dallo stesso seme per ogni quota: stesse estrazioni, curva liscia
+  const unif = (a, b) => a + caso() * (b - a);
+  const pesca = (v) => v[Math.floor(caso() * v.length)];
+  const siti = SITI.map((s) => ({ ...s, gruppo: s.c === "0" ? "s" + s.i : "c" + s.c }));
+  function simula(p) {
+    const carico = unif(...IP.carico), extra = unif(...IP.extra), pC = unif(...IP.p_cantiere), esito = new Map();
+    let tot = 0;
+    for (const s of siti) {
+      const mw = s.mw != null ? s.mw : pesca(DATI.donatori[s.f]);
+      let fatto = true;
+      if (s.f !== "acceso") {
+        if (!esito.has(s.gruppo)) esito.set(s.gruppo, caso() < (s.f === "cantiere" ? pC : p));
+        fatto = esito.get(s.gruppo);
+      }
+      if (fatto) tot += mw * carico * extra * ORE / 1e6;
+    }
+    return tot;
+  }
+  const righe = d3.range(0, 101, 5).map((pc) => {
+    caso = d3.randomLcg(42);
+    const v =d3.range(N).map(() => simula(pc / 100)).sort(d3.ascending);
+    return { pc, p05: d3.quantile(v, .05), med: d3.quantile(v, .5), p95: d3.quantile(v, .95) };
+  });
+  const oggi = R.oggi.mediana, famiglie = (twh) => twh * 1e9 / IP.famiglia_kwh / 1e6;
+
+  const W = 860, H = 380, m = { l: 44, r: 20, t: 24, b: 40 };
+  const svg = d3.select("#curva");
+  const x = d3.scaleLinear().domain([0, 100]).range([m.l, W - m.r]);
+  const y = d3.scaleLinear().domain([0, Math.ceil(d3.max(righe, (d) => d.p95) / 10) * 10]).range([H - m.b, m.t]);
+  svg.append("g").attr("class", "asse").attr("transform", `translate(0,${H - m.b})`)
+    .call(d3.axisBottom(x).ticks(5).tickFormat((d) => d + "%").tickSize(6));
+  svg.append("g").attr("class", "asse").attr("transform", `translate(${m.l},0)`)
+    .call(d3.axisLeft(y).ticks(6).tickSize(-(W - m.l - m.r))).call((g) => g.select(".domain").remove());
+  svg.append("text").attr("x", m.l).attr("y", m.t - 8).text("TWh l'anno");
+  svg.append("text").attr("x", W - m.r).attr("y", H - 6).attr("text-anchor", "end").text("progetti annunciati che si fanno davvero");
+  svg.append("path").datum(righe).attr("fill", "var(--progetto)").attr("fill-opacity", .22)
+    .attr("d", d3.area().x((d) => x(d.pc)).y0((d) => y(d.p05)).y1((d) => y(d.p95)).curve(d3.curveMonotoneX));
+  svg.append("path").datum(righe).attr("fill", "none").attr("stroke", "#8a4300").attr("stroke-width", 2.5)
+    .attr("d", d3.line().x((d) => x(d.pc)).y((d) => y(d.med)).curve(d3.curveMonotoneX));
+  svg.append("line").attr("x1", m.l).attr("x2", W - m.r).attr("y1", y(oggi)).attr("y2", y(oggi))
+    .attr("stroke", "#111").attr("stroke-dasharray", "4 4");
+  svg.append("text").attr("x", m.l + 6).attr("y", y(oggi) - 6).style("fill", "#111").text(`oggi, circa ${fmt0(oggi)} TWh`);
+  const guida = svg.append("line").attr("y1", m.t).attr("y2", H - m.b).attr("stroke", "#111").attr("stroke-width", 1);
+  const punto = svg.append("circle").attr("r", 6).attr("fill", "#fff").attr("stroke", "#111").attr("stroke-width", 2);
+  const etichetta = svg.append("text").style("fill", "#111").style("font-weight", 600).style("font-size", "14px")
+    .style("stroke", "#fff").style("stroke-width", 5).style("stroke-linejoin", "round").style("paint-order", "stroke");
+
+  function aggiorna() {
+    const pc = +document.getElementById("p").value, d = righe.find((r) => r.pc === pc);
+    document.getElementById("p-val").textContent = pc + "%";
+    document.getElementById("s-twh").textContent = fmt0(d.med);
+    document.getElementById("s-forchetta").textContent = fmt0(d.p05) + "-" + fmt0(d.p95);
+    document.getElementById("s-famiglie").textContent = fmt(famiglie(d.med));
+    guida.attr("x1", x(pc)).attr("x2", x(pc));
+    punto.attr("cx", x(pc)).attr("cy", y(d.med));
+    const destra = pc > 70;
+    etichetta.attr("x", x(pc) + (destra ? -12 : 12)).attr("y", y(d.med) - 12).attr("text-anchor", destra ? "end" : "start")
+      .text(`${fmt0(d.med)} TWh, ${fmt(d.med / oggi)} volte oggi`);
+  }
+  document.getElementById("p").addEventListener("input", aggiorna);
+  aggiorna();
 })();
 </script>
 </body>
