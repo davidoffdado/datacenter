@@ -79,6 +79,15 @@
   body.solo-scenari .aiuto, body.solo-scenari .legenda, body.solo-scenari main > .conta { display: none; }
   body.solo-scenari h2 { margin-top: 0; }
   body.statico:not(.solo-scenari) #scenari { display: none; }
+  .sito { margin: 28px 0 0; }
+  .sito h3 { font-size: 1.05rem; margin: 0 0 2px; font-weight: 700; letter-spacing: -.01em; }
+  .sito .dove { font-size: .85rem; color: var(--testo-2); margin: 0 0 10px; }
+  .coppia { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .coppia figure { margin: 0; }
+  .coppia img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; background: var(--terra); }
+  .coppia figcaption { font-size: .78rem; color: var(--testo-2); margin-top: 4px; }
+  .coppia figcaption b { color: var(--testo); font-weight: 600; }
+  body.statico #suolo, body.solo-scenari #suolo { display: none; }
   @media (max-width: 520px) { .conta b { font-size: 1.2rem; } }
 </style>
 </head>
@@ -116,6 +125,47 @@
     <div><b id="c-mw"></b>MW dichiarati</div>
     <div><b id="c-twh"></b>TWh l'anno stimati oggi e con cantieri e parte dei progetti</div>
   </div>
+  <section id="suolo">
+    <h2>Prima i campi, poi i data center</h2>
+    <p class="sommario">Quattro dei 10 impianti costruiti su suolo agricolo o incolto, tutti tra il sud di Milano e il Pavese. Stessa inquadratura, prima e dopo il cantiere.</p>
+
+    <div class="sito">
+      <h3>STACK MIL1A e MIL2, Siziano (PV)</h3>
+      <p class="dove">Campo fino al 2014, primo edificio nel 2016, altri nel 2021-2022. I data center sono l'edificio grande in alto e quelli in basso a sinistra, tutti su terreno che nel 2014 era campo.</p>
+      <div class="coppia">
+        <figure><img src="img/siziano_2014-10-24.jpg" alt="Siziano nel 2014: campi a nord della strada, capannoni a sud" loading="lazy"><figcaption><b>Prima</b> · ottobre 2014</figcaption></figure>
+        <figure><img src="img/siziano_2025-07-10.jpg" alt="Siziano nel 2025: due grandi data center al posto del campo" loading="lazy"><figcaption><b>Dopo</b> · luglio 2025</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="sito">
+      <h3>Microsoft, Settala (MI)</h3>
+      <p class="dove">Campo fino al 2020, cantiere nel 2022.</p>
+      <div class="coppia">
+        <figure><img src="img/settala_2020-01-29.jpg" alt="Settala nel 2020: terreno libero tra la strada e la zona industriale" loading="lazy"><figcaption><b>Prima</b> · gennaio 2020</figcaption></figure>
+        <figure><img src="img/settala_2025-08-31.jpg" alt="Settala nel 2025: il data center al posto del terreno libero" loading="lazy"><figcaption><b>Dopo</b> · agosto 2025</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="sito">
+      <h3>Compass MXP-I, Noviglio (MI)</h3>
+      <p class="dove">Campo fino al 2022, cantiere dal 2024.</p>
+      <div class="coppia">
+        <figure><img src="img/compass_2022-10-30.jpg" alt="Noviglio nel 2022: un campo tra le case e la zona industriale" loading="lazy"><figcaption><b>Prima</b> · ottobre 2022</figcaption></figure>
+        <figure><img src="img/compass_2025-07-03.jpg" alt="Noviglio nel 2025: il cantiere del data center occupa il campo" loading="lazy"><figcaption><b>Dopo</b> · luglio 2025</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="sito">
+      <h3>STACK MIL04, Vellezzo Bellini (PV)</h3>
+      <p class="dove">Pioppeto e campo fino al 2022, cantiere dal 2023, accanto a capannoni agricoli già esistenti.</p>
+      <div class="coppia">
+        <figure><img src="img/casarile_2022-06-09.jpg" alt="Vellezzo Bellini nel 2022: campi e capannoni agricoli" loading="lazy"><figcaption><b>Prima</b> · giugno 2022</figcaption></figure>
+        <figure><img src="img/casarile_2025-07-03.jpg" alt="Vellezzo Bellini nel 2025: il cantiere del data center sui campi" loading="lazy"><figcaption><b>Dopo</b> · luglio 2025</figcaption></figure>
+      </div>
+    </div>
+    <p class="nota">Immagini: Esri World Imagery Wayback (Maxar e altri). Datazione incrociata con la Carta nazionale del consumo di suolo di ISPRA.</p>
+  </section>
   <section id="scenari">
     <h2>Quanto consumeranno, a seconda di quanti progetti si fanno</h2>
     <p class="sommario">Nessuno sa quanti dei progetti annunciati diventeranno data center veri. Scegli una quota con il cursore: il grafico mostra il consumo di elettricità stimato di tutti i data center italiani, con la forchetta di incertezza.</p>
@@ -133,7 +183,7 @@
     <p class="nota">La linea è la stima centrale, la fascia contiene 9 simulazioni su 10. La linea tratteggiata è il consumo di oggi. I cantieri già aperti si contano sempre (realizzati all'80-100%).</p>
   </section>
 
-  <p class="fonti">Dati: <a href="https://www.datacentermap.com/italy/">Datacentermap</a> (uso autorizzato) per posizione, fase e potenza; ISPRA, Carta nazionale del consumo di suolo 2006-2024 (CC BY 4.0), e ortofoto storiche per il suolo. Consumi: stima dalla potenza dichiarata con carico tra 40 e 80%, impianti tra +20 e +50%, cantieri realizzati all'80-100%, progetti al 20-60% (mediana di simulazioni). Elaborazione di David Ruffini, <a href="https://www.davidruffini.com">davidruffini.com</a>. Anteprima non pubblicata.</p>
+  <p class="fonti">Dati: <a href="https://www.datacentermap.com/italy/">Datacentermap</a> (uso autorizzato) per posizione, fase e potenza; ISPRA, Carta nazionale del consumo di suolo 2006-2024 (CC BY 4.0), e ortofoto storiche (Esri World Imagery Wayback) per il suolo. Consumi: stima dalla potenza dichiarata con carico tra 40 e 80%, impianti tra +20 e +50%, cantieri realizzati all'80-100%, progetti al 20-60% (mediana di simulazioni). Elaborazione di David Ruffini, <a href="https://www.davidruffini.com">davidruffini.com</a>. Anteprima non pubblicata.</p>
 </main>
 <div class="tip" id="tip"></div>
 
