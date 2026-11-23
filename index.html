@@ -7,7 +7,8 @@
 <title>Data center in Italia</title>
 <!--
   Anteprima interattiva per i pitch (2026-11-22). Mappa dei data center per fase, cerchi grandi quanto la potenza dichiarata,
-  anello verde sui 10 costruiti su suolo agricolo o incolto (dati/siti_nuovo_suolo_landsat.csv + risultati/verifica_candidati.csv).
+  anello verde sui 9 costruiti su campi o incolti (risultati/verifica_candidati.csv, senza Insiel Palmanova: falso positivo).
+  Aggiornata il 2026-11-23: correzioni di potenza, potenze cercate a mano, siti accesi senza dato tarati sul Polimi (609 MW IT).
   Dati in dati_calore.js (copia di viz/dati_calore.js, da R/12_calore_italia.R).
   Indirizzi utili: #milano apre ingrandita sul sud di Milano; #statico nasconde i comandi (per lo screenshot).
 -->
@@ -94,13 +95,13 @@
 <body>
 <main class="pagina">
   <h1>I data center in Italia, accesi e in arrivo</h1>
-  <p class="sommario">Ogni cerchio è un data center (o un campus), grande quanto la potenza dichiarata. I progetti annunciati valgono <b id="t-volte-mw"></b> volte la potenza accesa oggi, e la crescita si concentra tra il sud di Milano e il Pavese. <b style="color:var(--suolo)">Con l'anello verde</b> i 10 impianti costruiti su campi o terreni incolti.</p>
+  <p class="sommario">Ogni cerchio è un data center (o un campus), grande quanto la potenza dichiarata. I progetti annunciati valgono circa <b id="t-volte-mw"></b> volte la potenza accesa oggi, e la crescita si concentra tra il sud di Milano e il Pavese. <b style="color:var(--suolo)">Con l'anello verde</b> i 9 impianti costruiti su campi o terreni incolti, tutti in aree che i piani urbanistici avevano già destinato all'edificazione.</p>
 
   <div class="tasti" role="group" aria-label="Cosa mostrare">
     <button data-fase="acceso" aria-pressed="true"><i style="background:var(--acceso)"></i>Accesi</button>
     <button data-fase="cantiere" aria-pressed="true"><i style="background:var(--cantiere)"></i>In costruzione</button>
     <button data-fase="progetto" aria-pressed="true"><i style="background:var(--progetto);opacity:.7"></i>In progetto</button>
-    <button id="t-suolo" aria-pressed="true"><i style="border:2px solid var(--suolo)"></i>Su suolo agricolo</button>
+    <button id="t-suolo" aria-pressed="true"><i style="border:2px solid var(--suolo)"></i>Su campi o incolti</button>
   </div>
 
   <div class="mappa-box">
@@ -118,16 +119,16 @@
     <span><i style="background:var(--cantiere)"></i>in costruzione</span>
     <span><i style="background:var(--progetto);opacity:.7;border:1px solid #8a4300"></i>in progetto</span>
     <span><i style="border:1px solid var(--testo-2)"></i>potenza non dichiarata</span>
-    <span><i style="border:2px solid var(--suolo)"></i>costruito su suolo agricolo o incolto</span>
+    <span><i style="border:2px solid var(--suolo)"></i>costruito su campi o terreni incolti</span>
   </div>
   <div class="conta" aria-live="polite">
     <div><b id="c-edifici"></b>edifici sulla mappa</div>
-    <div><b id="c-mw"></b>MW dichiarati</div>
+    <div><b id="c-mw"></b>MW noti (dichiarati o cercati)</div>
     <div><b id="c-twh"></b>TWh l'anno stimati oggi e con cantieri e parte dei progetti</div>
   </div>
   <section id="suolo">
     <h2>Prima i campi, poi i data center</h2>
-    <p class="sommario">Quattro dei 10 impianti costruiti su suolo agricolo o incolto, tutti tra il sud di Milano e il Pavese. Stessa inquadratura, prima e dopo il cantiere.</p>
+    <p class="sommario">Quattro dei 9 impianti costruiti su campi o terreni incolti, tutti tra il sud di Milano e il Pavese. Stessa inquadratura, prima e dopo il cantiere.</p>
 
     <div class="sito">
       <h3>STACK MIL1A e MIL2, Siziano (PV)</h3>
@@ -183,7 +184,7 @@
     <p class="nota">La linea è la stima centrale, la fascia contiene 9 simulazioni su 10. La linea tratteggiata è il consumo di oggi. I cantieri già aperti si contano sempre (realizzati all'80-100%).</p>
   </section>
 
-  <p class="fonti">Dati: <a href="https://www.datacentermap.com/italy/">Datacentermap</a> (uso autorizzato) per posizione, fase e potenza; ISPRA, Carta nazionale del consumo di suolo 2006-2024 (CC BY 4.0), e ortofoto storiche (Esri World Imagery Wayback) per il suolo. Consumi: stima dalla potenza dichiarata con carico tra 40 e 80%, impianti tra +20 e +50%, cantieri realizzati all'80-100%, progetti al 20-60% (mediana di simulazioni). Elaborazione di David Ruffini, <a href="https://www.davidruffini.com">davidruffini.com</a>. Anteprima non pubblicata.</p>
+  <p class="fonti">Dati: <a href="https://www.datacentermap.com/italy/">Datacentermap</a> (uso autorizzato) per posizione, fase e potenza; ISPRA, Carta nazionale del consumo di suolo 2006-2024 (CC BY 4.0), e ortofoto storiche (Esri World Imagery Wayback) per il suolo. Consumi: stima dalla potenza IT (consumo = potenza × carico × ore × PUE, come Banca d'Italia, QEF 1014/2026) con carico tra 40 e 80%, impianti tra +20 e +50%, cantieri realizzati all'80-100%, progetti al 20-60% (mediana di simulazioni). La potenza dei siti accesi che non la dichiarano è tarata sui 609 MW IT installati a fine 2025 secondo l'Osservatorio Data Center del Politecnico di Milano. Elaborazione di David Ruffini, <a href="https://www.davidruffini.com">davidruffini.com</a>. Anteprima non pubblicata.</p>
 </main>
 <div class="tip" id="tip"></div>
 
@@ -193,10 +194,11 @@ const fmt0 = (x) => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const SITI = DATI.siti.map((s, i) => ({ ...s, i }));
 const somma = (f) => d3.sum(SITI.filter((s) => s.f === f), (s) => s.mw || 0);
 const R = Object.fromEntries(DATI.riassunto.map((r) => [r.scenario, r]));
-document.getElementById("t-volte-mw").textContent = fmt0(somma("progetto") / somma("acceso"));
+// potenza accesa = nota + quella tarata sul Polimi per i siti senza dato
+document.getElementById("t-volte-mw").textContent = fmt0(somma("progetto") / (somma("acceso") + (DATI.ipotesi.residuo_polimi || 0)));
 document.getElementById("c-twh").textContent = fmt0(R.oggi.mediana) + " → " + fmt0(R.domani.mediana);
 
-// i 10 data center costruiti su suolo nuovo (verifica a occhio delle ortofoto, risultati/verifica_candidati.csv)
+// i 9 data center costruiti su suolo nuovo (verifica a occhio delle ortofoto, risultati/verifica_candidati.csv; Insiel Palmanova tolto)
 const SUOLO = [
   ["Eni Green Data Center", "Ferrera Erbognone (PV)", 45.09925, 8.86088, "campi fino al 2006, cantiere 2011-2012"],
   ["STACK MIL1A", "Siziano (PV)", 45.33121, 9.20606, "campo fino al 2014, cantiere 2016"],
@@ -204,7 +206,6 @@ const SUOLO = [
   ["Microsoft", "Settala (MI)", 45.42909, 9.38617, "campo fino al 2020, cantiere 2022"],
   ["Noovle Cebrosa", "Settimo Torinese (TO)", 45.14632, 7.74232, "campo fino al 2020, cantiere 2022"],
   ["Aruba IT4", "Roma", 41.93068, 12.63121, "incolto fino al 2021, cantiere 2022"],
-  ["Insiel", "Palmanova (UD)", 45.911305, 13.335943, "incolto fino al 2012, cantiere 2012-2016"],
   ["STACK MIL04", "Vellezzo Bellini (PV)", 45.275665, 9.125282, "pioppeto e campo fino al 2022, cantiere 2023"],
   ["Compass MXP-I", "Noviglio (MI)", 45.337359, 9.089661, "campo fino al 2022, cantiere 2024"],
   ["Vantage MXP1", "Melegnano (MI)", 45.35366, 9.30992, "incolto fino al 2022, cantiere 2024"],
@@ -216,7 +217,7 @@ const FASI = { acceso: "acceso", cantiere: "in costruzione", progetto: "in proge
 function mostra(ev, s) {
   const gwh = s.mw != null ? s.mw * 0.6 * 1.35 * 8760 / 1000 : null;
   const edifici = s.edifici > 1 ? ` · ${s.edifici} edifici` : "";
-  const suolo = s.suolo ? `<br><span class="verde">Su suolo agricolo o incolto</span><br><span class="grigio">${s.suolo[1]}: ${s.suolo[4]}</span>` : "";
+  const suolo = s.suolo ? `<br><span class="verde">Costruito su campi o incolti</span><br><span class="grigio">${s.suolo[1]}: ${s.suolo[4]}</span>` : "";
   tip.innerHTML = `<b>${s.n}</b><br><span class="grigio">${s.a} · ${FASI[s.f]}${edifici}</span><br>` +
     (s.mw != null ? `${fmt(s.mw, s.mw < 10 ? 1 : 0)} MW · circa ${fmt0(gwh)} GWh l'anno` : "potenza non dichiarata") + suolo;
   tip.style.left = Math.min(ev.clientX + 14, innerWidth - 290) + "px"; tip.style.top = (ev.clientY + 14) + "px"; tip.style.opacity = 1;
@@ -328,7 +329,8 @@ const nascondi = () => (tip.style.opacity = 0);
 
 // ---------- scenari: le stesse regole di R/12_calore_italia.R e viz/calore.html ----------
 // Per ogni quota di progetti (0-100%) si simulano 600 futuri: carico dei server, consumo degli impianti, potenza dei siti che non la
-// dichiarano (pescata fra i siti della stessa fase), cantieri realizzati all'80-100%, ogni progetto con la probabilità scelta.
+// dichiarano (pescata fra i siti della stessa fase; per gli accesi riscalata perché la somma faccia il residuo Polimi),
+// cantieri realizzati all'80-100%, ogni progetto con la probabilità scelta.
 // Gli edifici di uno stesso campus si fanno o non si fanno insieme. Seme fisso, così i numeri non cambiano a ogni caricamento.
 if (location.hash.includes("solo-scenari")) document.body.classList.add("solo-scenari", "statico");
 (function () {
@@ -340,8 +342,14 @@ if (location.hash.includes("solo-scenari")) document.body.classList.add("solo-sc
   function simula(p) {
     const carico = unif(...IP.carico), extra = unif(...IP.extra), pC = unif(...IP.p_cantiere), esito = new Map();
     let tot = 0;
-    for (const s of siti) {
-      const mw = s.mw != null ? s.mw : pesca(DATI.donatori[s.f]);
+    const mws = siti.map((s) => (s.mw != null ? s.mw : pesca(DATI.donatori[s.f])));
+    if (IP.residuo_polimi) {   // taratura sul Polimi, come in R/12 (USA_POLIMI)
+      const ignoti = siti.map((s, i) => (s.mw == null && s.f === "acceso" ? i : -1)).filter((i) => i >= 0);
+      const somma = d3.sum(ignoti, (i) => mws[i]);
+      for (const i of ignoti) mws[i] *= IP.residuo_polimi / somma;
+    }
+    for (const [j, s] of siti.entries()) {
+      const mw = mws[j];
       let fatto = true;
       if (s.f !== "acceso") {
         if (!esito.has(s.gruppo)) esito.set(s.gruppo, caso() < (s.f === "cantiere" ? pC : p));
